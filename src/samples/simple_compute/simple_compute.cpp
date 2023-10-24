@@ -3,6 +3,8 @@
 #include <vk_pipeline.h>
 #include <vk_buffers.h>
 #include <vk_utils.h>
+#include <random>
+#include <chrono>
 
 SimpleCompute::SimpleCompute(uint32_t a_length) : m_length(a_length)
 {
@@ -12,6 +14,8 @@ SimpleCompute::SimpleCompute(uint32_t a_length) : m_length(a_length)
   m_enableValidation = true;
 #endif
 }
+
+
 
 void SimpleCompute::SetupValidationLayers()
 {
@@ -95,13 +99,18 @@ void SimpleCompute::SetupSimplePipeline()
   m_pBindings->BindEnd(&m_sumDS, &m_sumDSLayout);
 
   // Заполнение буферов
+
   std::vector<float> values(m_length);
-  for (uint32_t i = 0; i < values.size(); ++i) {
-    values[i] = (float)i;
+  for (uint32_t i = 0; i < m_length; ++i)
+  {
+    values[i] = (float(rand()) / RAND_MAX);
   }
   m_pCopyHelper->UpdateBuffer(m_A, 0, values.data(), sizeof(float) * values.size());
+
+
+
   for (uint32_t i = 0; i < values.size(); ++i) {
-    values[i] = (float)i * i;
+    values[i] = (float)0;
   }
   m_pCopyHelper->UpdateBuffer(m_B, 0, values.data(), sizeof(float) * values.size());
 }
@@ -122,7 +131,7 @@ void SimpleCompute::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkPipeli
 
   vkCmdPushConstants(a_cmdBuff, m_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(m_length), &m_length);
 
-  vkCmdDispatch(a_cmdBuff, 1, 1, 1);
+  vkCmdDispatch(a_cmdBuff, 1 + (m_length - 1) / 256, 1, 1);
 
   VK_CHECK_RESULT(vkEndCommandBuffer(a_cmdBuff));
 }
@@ -217,15 +226,48 @@ void SimpleCompute::Execute()
   fenceCreateInfo.flags = 0;
   VK_CHECK_RESULT(vkCreateFence(m_device, &fenceCreateInfo, NULL, &m_fence));
 
+  std::cout << "InputBatch size: " << m_length << std::endl;
+
+  std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
   // Отправляем буфер команд на выполнение
   VK_CHECK_RESULT(vkQueueSubmit(m_computeQueue, 1, &submitInfo, m_fence));
 
   //Ждём конца выполнения команд
   VK_CHECK_RESULT(vkWaitForFences(m_device, 1, &m_fence, VK_TRUE, 100000000000));
+  std::chrono::steady_clock::time_point finish = std::chrono::steady_clock::now();
 
   std::vector<float> values(m_length);
   m_pCopyHelper->ReadBuffer(m_sum, 0, values.data(), sizeof(float) * values.size());
+
+  double sum = 0;
   for (auto v: values) {
-    std::cout << v << ' ';
+    sum += v;
   }
+  std::cout << "Sum: " << sum << std::endl;
+  std::cout << "Time [on gpy]: " << std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count() / 1000 << " ms" << std::endl;
+
+  start = std::chrono::steady_clock::now();
+  
+  std::vector<float> A(m_length);
+  for (uint32_t i = 0; i < m_length; ++i)
+  {
+    A[i] = (float(rand()) / RAND_MAX);
+  }
+
+  sum = 0;
+  for (int i = 0; i < values.size(); ++i)
+  {
+    double s = 0;
+    for (int j = std::max(0, i - 3); j <= std::min((int)values.size() - 1, i + 3); ++j)
+    {
+      s += A[j];
+    }
+
+    sum += s / 7;
+  }
+
+  finish = std::chrono::steady_clock::now();
+
+  std::cout << "Sum: " << sum << std::endl;
+  std::cout << "Time [on cpy]: " << std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count() / 1000 << " ms" << std::endl;
 }
