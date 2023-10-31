@@ -12,6 +12,7 @@ layout(push_constant) uniform params_t
 {
     mat4 mProjView;
     mat4 mModel;
+    float time;
 } params;
 
 
@@ -32,6 +33,18 @@ void main(void)
 
     vOut.wPos     = (params.mModel * vec4(vPosNorm.xyz, 1.0f)).xyz;
     vOut.wNorm    = normalize(mat3(transpose(inverse(params.mModel))) * wNorm.xyz);
+
+    float coef    = (1 + sin(params.time)) * (1 + sin(params.time)) * (1 + sin(params.time)) / 100.0f;
+    vOut.wPos     += (vOut.wNorm) * coef;
+
+    float slow    = cos(params.time / 2.0f) * cos(params.time / 2.0f) * cos(params.time / 2.0f) / 5.0f;
+
+    float rotx    = cos(slow) * vOut.wPos.x - sin(slow) * vOut.wPos.z;
+    float rotz    = sin(slow) * vOut.wPos.x + cos(slow) * vOut.wPos.z;
+
+    vOut.wPos.x   = rotx;
+    vOut.wPos.z   = rotz;
+
     vOut.wTangent = normalize(mat3(transpose(inverse(params.mModel))) * wTang.xyz);
     vOut.texCoord = vTexCoordAndTang.xy;
 

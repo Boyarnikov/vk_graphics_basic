@@ -5,6 +5,8 @@
 #include <vk_pipeline.h>
 #include <vk_buffers.h>
 
+#include <utils/glfw_window.h>
+
 SimpleShadowmapRender::SimpleShadowmapRender(uint32_t a_width, uint32_t a_height) : m_width(a_width), m_height(a_height)
 {
 #ifdef NDEBUG
@@ -271,6 +273,7 @@ void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4
   vkCmdBindIndexBuffer(a_cmdBuff, indexBuf, 0, VK_INDEX_TYPE_UINT32);
 
   pushConst2M.projView = a_wvp;
+  pushConst2M.timer     = glfwGetTime();
   for (uint32_t i = 0; i < m_pScnMgr->InstancesNum(); ++i)
   {
     auto inst         = m_pScnMgr->GetInstanceInfo(i);
