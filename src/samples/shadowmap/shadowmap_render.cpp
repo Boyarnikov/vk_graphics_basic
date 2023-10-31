@@ -5,6 +5,8 @@
 #include <vk_buffers.h>
 #include <iostream>
 
+#include <utils/glfw_window.h>
+
 #include <etna/GlobalContext.hpp>
 #include <etna/Etna.hpp>
 #include <etna/RenderTargetStates.hpp>
@@ -173,6 +175,7 @@ void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4
     auto mesh_info = m_pScnMgr->GetMeshInfo(inst.mesh_id);
     vkCmdDrawIndexed(a_cmdBuff, mesh_info.m_indNum, 1, mesh_info.m_indexOffset, mesh_info.m_vertexOffset, 0);
   }
+  pushConst2M.timer = glfwGetTime();
 }
 
 void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkImage a_targetImage, VkImageView a_targetImageView)
