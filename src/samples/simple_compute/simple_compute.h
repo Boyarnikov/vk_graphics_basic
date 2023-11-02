@@ -86,7 +86,7 @@ private:
 
   void BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkPipeline a_pipeline);
 
-  void SetupSimplePipeline();
+  void SetupSimplePipeline(std::vector<float> &data);
   void CreateComputePipeline();
   void CleanupPipeline();
 

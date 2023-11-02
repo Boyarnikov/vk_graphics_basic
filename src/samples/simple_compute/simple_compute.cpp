@@ -74,7 +74,7 @@ void SimpleCompute::CreateDevice(uint32_t a_deviceId)
 }
 
 
-void SimpleCompute::SetupSimplePipeline()
+void SimpleCompute::SetupSimplePipeline(std::vector<float> &values)
 {
   std::vector<std::pair<VkDescriptorType, uint32_t> > dtypes = {
       {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,             3}
@@ -98,16 +98,7 @@ void SimpleCompute::SetupSimplePipeline()
   m_pBindings->BindBuffer(2, m_sum);
   m_pBindings->BindEnd(&m_sumDS, &m_sumDSLayout);
 
-  // Заполнение буферов
-
-  std::vector<float> values(m_length);
-  for (uint32_t i = 0; i < m_length; ++i)
-  {
-    values[i] = (float(rand()) / RAND_MAX);
-  }
   m_pCopyHelper->UpdateBuffer(m_A, 0, values.data(), sizeof(float) * values.size());
-
-
 
   for (uint32_t i = 0; i < values.size(); ++i) {
     values[i] = (float)0;
@@ -211,7 +202,15 @@ void SimpleCompute::CreateComputePipeline()
 
 void SimpleCompute::Execute()
 {
-  SetupSimplePipeline();
+  std::vector<float> A(m_length);
+  for (uint32_t i = 0; i < m_length; ++i)
+  {
+    A[i] = (float(rand()) / RAND_MAX);
+  }
+
+  std::vector<float> B = A;
+
+  SetupSimplePipeline(B);
   CreateComputePipeline();
 
   BuildCommandBufferSimple(m_cmdBufferCompute, nullptr);
@@ -239,25 +238,20 @@ void SimpleCompute::Execute()
   std::vector<float> values(m_length);
   m_pCopyHelper->ReadBuffer(m_sum, 0, values.data(), sizeof(float) * values.size());
 
-  double sum = 0;
+  float sum = 0;
   for (auto v: values) {
     sum += v;
   }
-  std::cout << "Sum: " << sum << std::endl;
-  std::cout << "Time [on gpy]: " << std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count() / 1000 << " ms" << std::endl;
+  std::cout << "Sum: " << std::fixed  << sum << std::endl;
+  std::cout << "Time [on gpy]: " << std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count() / 1000.f << " ms" << std::endl;
 
   start = std::chrono::steady_clock::now();
-  
-  std::vector<float> A(m_length);
-  for (uint32_t i = 0; i < m_length; ++i)
-  {
-    A[i] = (float(rand()) / RAND_MAX);
-  }
+ 
 
   sum = 0;
   for (int i = 0; i < values.size(); ++i)
   {
-    double s = 0;
+    float s = 0;
     for (int j = std::max(0, i - 3); j <= std::min((int)values.size() - 1, i + 3); ++j)
     {
       s += A[j];
@@ -269,5 +263,5 @@ void SimpleCompute::Execute()
   finish = std::chrono::steady_clock::now();
 
   std::cout << "Sum: " << sum << std::endl;
-  std::cout << "Time [on cpy]: " << std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count() / 1000 << " ms" << std::endl;
+  std::cout << "Time [on cpy]: " << std::chrono::duration_cast<std::chrono::microseconds>(finish - start).count() / 1000.f << " ms" << std::endl;
 }
