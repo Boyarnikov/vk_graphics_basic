@@ -29,6 +29,7 @@ public:
 
   uint32_t     GetWidth()      const override { return m_width; }
   uint32_t     GetHeight()     const override { return m_height; }
+  uint32_t     GetScale()      const          { return ssaa_is_active * (ssaa_scale - 1) + 1; }
   VkInstance   GetVkInstance() const override { return m_context->getInstance(); }
 
   void InitVulkan(const char** a_instanceExtensions, uint32_t a_instanceExtensionsCount, uint32_t a_deviceId) override;
@@ -47,8 +48,12 @@ private:
   etna::GlobalContext* m_context;
   etna::Image mainViewDepth;
   etna::Image shadowMap;
+  etna::Image view;
   etna::Sampler defaultSampler;
   etna::Buffer constants;
+
+  const int ssaa_scale = 2;
+  bool ssaa_is_active;
 
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
@@ -123,7 +128,7 @@ private:
     bool   usePerspectiveM;  ///!< use perspective matrix if true and ortographics otherwise
   
   } m_light;
- 
+
   void DrawFrameSimple(bool draw_gui);
 
   void BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkImage a_targetImage, VkImageView a_targetImageView);

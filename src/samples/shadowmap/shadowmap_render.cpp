@@ -17,7 +17,7 @@ void SimpleShadowmapRender::AllocateResources()
 {
   mainViewDepth = m_context->createImage(etna::Image::CreateInfo
   {
-    .extent = vk::Extent3D{m_width, m_height, 1},
+    .extent = vk::Extent3D{ m_width * ssaa_scale, m_height * ssaa_scale, 1 },
     .name = "main_view_depth",
     .format = vk::Format::eD32Sfloat,
     .imageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment
@@ -29,6 +29,14 @@ void SimpleShadowmapRender::AllocateResources()
     .name = "shadow_map",
     .format = vk::Format::eD16Unorm,
     .imageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled
+  });
+
+  view = m_context->createImage(etna::Image::CreateInfo
+  {
+    .extent     = vk::Extent3D{ m_width * ssaa_scale, m_height * ssaa_scale, 1 },
+    .name       = "view",
+    .format     = vk::Format::eR32G32B32A32Sfloat,
+    .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
   });
 
   defaultSampler = etna::Sampler(etna::Sampler::CreateInfo{.name = "default_sampler"});
@@ -109,7 +117,7 @@ void SimpleShadowmapRender::SetupSimplePipeline()
       .vertexShaderInput = sceneVertexInputDesc,
       .fragmentShaderOutput =
         {
-          .colorAttachmentFormats = {static_cast<vk::Format>(m_swapchain.GetFormat())},
+          .colorAttachmentFormats = {vk::Format::eR32G32B32A32Sfloat},
           .depthAttachmentFormat = vk::Format::eD32Sfloat
         }
     });
@@ -133,7 +141,7 @@ void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4
   VkDeviceSize zero_offset = 0u;
   VkBuffer vertexBuf = m_pScnMgr->GetVertexBuffer();
   VkBuffer indexBuf  = m_pScnMgr->GetIndexBuffer();
-  
+
   vkCmdBindVertexBuffers(a_cmdBuff, 0, 1, &vertexBuf, &zero_offset);
   vkCmdBindIndexBuffer(a_cmdBuff, indexBuf, 0, VK_INDEX_TYPE_UINT32);
 
@@ -182,8 +190,8 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
 
     VkDescriptorSet vkSet = set.getVkSet();
 
-    etna::RenderTargetState renderTargets(a_cmdBuff, {0, 0, m_width, m_height},
-      {{.image = a_targetImage, .view = a_targetImageView}},
+    etna::RenderTargetState renderTargets(a_cmdBuff, { 0, 0, m_width * GetScale(), m_height * GetScale()},
+      {{.image = view.get(), .view = view.getView({})}},
       {.image = mainViewDepth.get(), .view = mainViewDepth.getView({})});
 
     vkCmdBindPipeline(a_cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, m_basicForwardPipeline.getVkPipeline());
@@ -192,6 +200,38 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
 
     DrawSceneCmd(a_cmdBuff, m_worldViewProj, m_basicForwardPipeline.getVkPipelineLayout());
   }
+
+  VkImageBlit imageBlit{};
+  imageBlit.srcOffsets[0] = {0, 0, 0};
+  imageBlit.srcOffsets[1] = {int32_t(m_width * GetScale()), int32_t(m_height * GetScale()), 1};
+
+  imageBlit.srcSubresource.layerCount = 1;
+  imageBlit.srcSubresource.mipLevel = 0;
+  imageBlit.srcSubresource.baseArrayLayer = 0;
+  imageBlit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+  imageBlit.dstOffsets[0] = { 0, 0, 0 };
+  imageBlit.dstOffsets[1] = { int32_t(m_width), int32_t(m_height), 1 };
+
+  imageBlit.dstSubresource.layerCount = 1;
+  imageBlit.dstSubresource.mipLevel = 0;
+  imageBlit.dstSubresource.baseArrayLayer = 0;
+  imageBlit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+  etna::set_state(a_cmdBuff, view.get(), vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferRead, vk::ImageLayout::eTransferSrcOptimal, vk::ImageAspectFlagBits::eColor);
+  etna::set_state(a_cmdBuff, a_targetImage, vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite, vk::ImageLayout::eTransferDstOptimal, vk::ImageAspectFlagBits::eColor);
+  etna::flush_barriers(a_cmdBuff);
+
+  vkCmdBlitImage(
+    a_cmdBuff,
+    view.get(),
+    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    a_targetImage,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    1,
+    &imageBlit,
+    VK_FILTER_LINEAR
+  );
 
   if(m_input.drawFSQuad)
     m_pQuad->RecordCommands(a_cmdBuff, a_targetImage, a_targetImageView, shadowMap, defaultSampler);
