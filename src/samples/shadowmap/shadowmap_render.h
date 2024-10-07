@@ -87,6 +87,9 @@ private:
   uint32_t m_framesInFlight = 2u;
   bool m_vsync = false;
 
+  float inside = 3.f;
+  float outside = 5.f;
+
   vk::PhysicalDeviceFeatures m_enabledDeviceFeatures = {};
   std::vector<const char*> m_deviceExtensions;
   std::vector<const char*> m_instanceExtensions;
