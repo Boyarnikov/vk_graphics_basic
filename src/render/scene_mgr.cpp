@@ -43,18 +43,61 @@ bool SceneManager::LoadSceneXML(const std::string &scenePath, bool transpose)
     return false;
   }
 
-  for(auto loc : hscene_main->MeshFiles())
+  cmesh::SimpleMesh perlinMesh = cmesh::SimpleMesh();
+
+  const size_t division = 512;
+  float cell_size = 1.f / static_cast<float>(division);
+
+  perlinMesh.vPos4f.resize(4 * (division + 1) * (division + 1));
+  perlinMesh.vNorm4f.resize(4 * (division + 1) * (division + 1));
+  perlinMesh.vTexCoord2f.resize(2 * (division + 1) * (division + 1));
+  for (size_t x = 0; x < (division + 1); ++x)
   {
-    auto meshId    = AddMeshFromFile(loc);
-    auto instances = hscene_main->GetAllInstancesOfMeshLoc(loc); 
-    for(size_t j = 0; j < instances.size(); ++j)
+    for (size_t y = 0; y < (division + 1); ++y)
     {
-      if(transpose)
-        InstanceMesh(meshId, LiteMath::transpose(instances[j]));
-      else
-        InstanceMesh(meshId, instances[j]);
+      const size_t pos4_index = 4LL * (x * (division + 1) + y);
+
+      perlinMesh.vPos4f[pos4_index] = y * cell_size;
+      perlinMesh.vPos4f[pos4_index + 1] = 0.f;
+      perlinMesh.vPos4f[pos4_index + 2] = x * cell_size;
+      perlinMesh.vPos4f[pos4_index + 3] = 1.f;
+
+      perlinMesh.vNorm4f[pos4_index] = 0.f;
+      perlinMesh.vNorm4f[pos4_index + 1] = 1.f;
+      perlinMesh.vNorm4f[pos4_index + 2] = 0.f;
+      perlinMesh.vNorm4f[pos4_index + 3] = 0.f;
+
+      const size_t pos2_index = 2LL * (x * (division + 1) + y);
+
+      perlinMesh.vTexCoord2f[pos2_index]     = y * cell_size;
+      perlinMesh.vTexCoord2f[pos2_index + 1] = x * cell_size;
     }
   }
+
+  perlinMesh.vTang4f = std::vector<float>(4 * (division + 1) * (division + 1), 0);
+  perlinMesh.indices.resize(6 * division * division);
+  for (size_t x = 0; x < division; ++x)
+  {
+    for (size_t z = 0; z < division; ++z)
+    {
+      const size_t index = 6LL * (x * division + z);
+       const size_t offset_x = x * (division + 1);
+      const size_t offset_z = z;
+      perlinMesh.indices[index] = offset_x + offset_z;
+      perlinMesh.indices[index + 1] = offset_x + offset_z + 1;
+      perlinMesh.indices[index + 2] = offset_x + offset_z + (division + 1);
+      perlinMesh.indices[index + 3] = offset_x + offset_z + (division + 1);
+      perlinMesh.indices[index + 4] = offset_x + offset_z + (division + 1) + 1;
+      perlinMesh.indices[index + 5] = offset_x + offset_z + 1;
+    }
+  }
+
+  AddMeshFromData(perlinMesh);
+  m_instanceMatrices.push_back(LiteMath::translate4x4({-0.5f, -0.5f, 2.5f}));
+  m_instanceInfos.push_back(InstanceInfo{
+    .mesh_id = static_cast<uint32_t>(m_instanceInfos.size()),
+    .renderMark = true
+  });
 
   for(auto cam : hscene_main->Cameras())
   {
