@@ -50,6 +50,8 @@ private:
   etna::Sampler defaultSampler;
   etna::Buffer constants;
 
+  etna::Image tonemap;
+
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
   struct
@@ -70,14 +72,15 @@ private:
   } pushConst2M;
 
   float4x4 m_worldViewProj;
-  float4x4 m_lightMatrix;    
+  float4x4 m_lightMatrix;
 
   UniformParams m_uniforms {};
   void* m_uboMappedMem = nullptr;
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
-  
+  etna::GraphicsPipeline m_toneMappingPipeline {};
+
   VkSurfaceKHR m_surface = VK_NULL_HANDLE;
   VulkanSwapChain m_swapchain;
 
@@ -86,6 +89,9 @@ private:
   uint32_t m_height = 1024u;
   uint32_t m_framesInFlight = 2u;
   bool m_vsync = false;
+
+  float brightness = 3.5f;
+  bool useTonemap = false;
 
   vk::PhysicalDeviceFeatures m_enabledDeviceFeatures = {};
   std::vector<const char*> m_deviceExtensions;
