@@ -22,5 +22,8 @@ void main()
     vec3 color = textureLod(inColor, TexCoord, 0).rgb;
     vec3 mapped = color / (color + vec3(1.0));
     mapped = pow(mapped, vec3(1.0 / gamma));
-    outColor = vec4(color * int(!Params.useTonemap) + mapped * int(Params.useTonemap), 1.0f);
+
+    vec3 clamped = clamp(color, vec3(0.0f), vec3(1.0f));
+
+    outColor = vec4(clamped * int(!Params.useTonemap) + mapped * int(Params.useTonemap), 1.0f);
 }
