@@ -1,0 +1,56 @@
+#version 450
+
+const float distance_coof = 3.;
+
+#define values_count 21
+
+const float value[values_count] = float[values_count](
+0.00E-01,
+2.83E-05,
+2.01E-04,
+1.12E-03,
+4.86E-03,
+1.65E-02,
+4.41E-02,
+9.18E-02,
+1.50E-01,
+1.91E-01,
+1.91E-01,
+1.50E-01,
+9.18E-02,
+4.41E-02,
+1.65E-02,
+4.86E-03,
+1.12E-03,
+2.01E-04,
+2.83E-05,
+3.11E-06,
+0.00E+01
+);
+
+layout (binding = 0) uniform sampler2D image;
+
+layout(push_constant) uniform params_t
+{
+    vec2 direction;
+};
+
+layout (binding = 1, rg32f) uniform writeonly image2D blur;
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+void main() {
+    ivec2 size = textureSize(image, 0);
+    ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+
+    if (gl_GlobalInvocationID.x < size.x && gl_GlobalInvocationID.y < size.y) {
+        vec2 result = vec2(0.0);
+        for (int i = 0; i < values_count; ++i) {
+            vec2 offset = direction * (i - values_count/2) * distance_coof / vec2(size);
+            result += texture(image, vec2(coords) / vec2(size) + offset).xy * value[i];
+        }
+        const vec4 blurred = vec4(result, 0.0, 0.0);
+
+        imageStore(blur, coords, blurred);
+    }
+}

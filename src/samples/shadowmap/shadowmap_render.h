@@ -47,6 +47,9 @@ private:
   etna::GlobalContext* m_context;
   etna::Image mainViewDepth;
   etna::Image shadowMap;
+  etna::Image vsmDepthBuffer;
+  etna::Image vsmMoments;
+  etna::Image vsmMomentsBlur;
   etna::Sampler defaultSampler;
   etna::Buffer constants;
 
@@ -70,14 +73,19 @@ private:
   } pushConst2M;
 
   float4x4 m_worldViewProj;
-  float4x4 m_lightMatrix;    
+  float4x4 m_lightMatrix;
 
   UniformParams m_uniforms {};
   void* m_uboMappedMem = nullptr;
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
-  
+
+
+  etna::GraphicsPipeline m_vsmForwardPipeline{};
+  etna::GraphicsPipeline m_vsmPipeline{};
+  etna::ComputePipeline m_vsmBlurPipeline{};
+
   VkSurfaceKHR m_surface = VK_NULL_HANDLE;
   VulkanSwapChain m_swapchain;
 
@@ -87,13 +95,15 @@ private:
   uint32_t m_framesInFlight = 2u;
   bool m_vsync = false;
 
+  bool use_vsm = false;
+
   vk::PhysicalDeviceFeatures m_enabledDeviceFeatures = {};
   std::vector<const char*> m_deviceExtensions;
   std::vector<const char*> m_instanceExtensions;
 
   std::shared_ptr<SceneManager> m_pScnMgr;
   std::shared_ptr<IRenderGUI> m_pGUIRender;
-  
+
   std::unique_ptr<QuadRenderer> m_pQuad;
 
   struct InputControlMouseEtc
@@ -106,26 +116,27 @@ private:
   */
   struct ShadowMapCam
   {
-    ShadowMapCam() 
-    {  
+    ShadowMapCam()
+    {
       cam.pos    = float3(4.0f, 4.0f, 4.0f);
       cam.lookAt = float3(0, 0, 0);
       cam.up     = float3(0, 1, 0);
-  
+
       radius          = 5.0f;
       lightTargetDist = 20.0f;
       usePerspectiveM = true;
     }
 
-    float  radius;           ///!< ignored when usePerspectiveM == true 
+    float  radius;           ///!< ignored when usePerspectiveM == true
     float  lightTargetDist;  ///!< identify depth range
     Camera cam;              ///!< user control for light to later get light worldViewProj matrix
     bool   usePerspectiveM;  ///!< use perspective matrix if true and ortographics otherwise
-  
+
   } m_light;
- 
+
   void DrawFrameSimple(bool draw_gui);
 
+  void BuildCommandBufferVSM(VkCommandBuffer a_cmdBuff, VkImage a_targetImage, VkImageView a_targetImageView);
   void BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkImage a_targetImage, VkImageView a_targetImageView);
 
   void DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4x4& a_wvp, VkPipelineLayout a_pipelineLayout = VK_NULL_HANDLE);
